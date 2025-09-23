@@ -1,6 +1,3 @@
-Here’s a clean, generic README template for your **MethylPipe** package, including installation instructions and usage examples. You can customize it later with more details about functions, workflows, and plots.
-
-````markdown
 # MethylPipe
 
 **MethylPipe** is an R package for downstream processing and analysis of cfRRBS (cell-free Reduced Representation Bisulfite Sequencing) data. It provides functions for:
