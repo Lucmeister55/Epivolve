@@ -6,7 +6,8 @@
     "GenomicRanges",
     "GenomicFeatures",
     "sva",
-    "limma"
+    "limma",
+    "impute"
   )
   
   missing_pkgs <- bioc_pkgs[!sapply(bioc_pkgs, requireNamespace, quietly = TRUE)]
