@@ -13,11 +13,6 @@
 
 ## Installation
 
-### From CRAN (future, if published)
-```R
-install.packages("MethylPipe")
-````
-
 ### From GitHub (current)
 
 You will need the `remotes` package:
@@ -25,16 +20,15 @@ You will need the `remotes` package:
 ```R
 install.packages("remotes")
 remotes::install_github("Lucmeister55/MethylPipe", dependencies = TRUE)
+library(MethylPipe)  # will install missing Bioconductor packages automatically
 ```
 
 ## Dependencies
 
 MethylPipe relies on several R packages:
 
-* `methylKit`
 * `ggplot2`
 * `dplyr`
-* `limma`
 * `ggrepel`
 * `forcats`
 * `MASS`
