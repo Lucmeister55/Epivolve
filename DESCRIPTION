@@ -1,0 +1,21 @@
+Package: MethylPipe
+Type: Package
+Title: Downstream preprocessing pipeline for cfRRBS starting from Bismark coverage
+Version: 0.1.0
+Authors@R: person("Luca","Visser",email="Luca.Visser@UGent.be",role=c("aut","cre"))
+Description: Read Bismark coverage files and run standardized downstream preprocessing: filtering, aggregation to regions, Beta/M conversions, PCA/UMAP/t-SNE, batch checks and correction, QC reporting, and export for modelling.
+Depends: R (>= 4.1)
+Imports:
+    methylKit,
+    bsseq,
+    GenomicRanges,
+    GenomicFeatures,
+    data.table,
+    sva,
+    limma,
+    uwot,
+    Rtsne,
+    ggplot2
+License: MIT
+Encoding: UTF-8
+LazyData: true
