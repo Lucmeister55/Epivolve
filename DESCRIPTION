@@ -13,11 +13,19 @@ Imports:
     MASS,
     methylKit,
     SummarizedExperiment,
-    GenomicRanges
+    GenomicRanges,
+    BiocGenerics,
+    IRanges,
+    S4Vectors,
+    stats,
+    utils
 Remotes:
     bioc::methylKit,
     bioc::SummarizedExperiment,
-    bioc::GenomicRanges
+    bioc::GenomicRanges,
+    bioc::BiocGenerics,
+    bioc::IRanges,
+    bioc::S4Vectors
 License: MIT
 Encoding: UTF-8
 LazyData: true
