@@ -11,11 +11,7 @@ Imports:
     ggrepel,
     forcats,
     MASS,
-    methylKit,
-    SummarizedExperiment,
-    GenomicRanges,
     BiocGenerics,
-    IRanges,
     S4Vectors,
     stats,
     utils

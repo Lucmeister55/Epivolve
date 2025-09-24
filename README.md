@@ -20,7 +20,13 @@ You will need the `remotes` package:
 ```R
 if (!require("BiocManager", quietly = TRUE))
   install.packages("BiocManager")
-BiocManager::install(version = "3.21")
+
+BiocManager::install(c(
+  "methylKit",
+  "GenomicRanges",
+  "IRanges",
+  "SummarizedExperiment"
+))
 
 install.packages("remotes")
 remotes::install_github("Lucmeister55/MethylPipe", dependencies = TRUE)

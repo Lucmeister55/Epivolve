@@ -25,23 +25,3 @@
   on.exit(dev.off(), add = TRUE)
   force(expr)
 }
-
-.onLoad <- function(libname, pkgname) {
-    required_pkgs <- c(
-        "methylKit",
-        "SummarizedExperiment",
-        "GenomicRanges",
-        "IRanges",
-        "S4Vectors",
-        "BiocGenerics"
-    )
-    
-    for (p in required_pkgs) {
-        if (!requireNamespace(p, quietly = TRUE)) {
-            if (!requireNamespace("BiocManager", quietly = TRUE)) {
-                install.packages("BiocManager")
-            }
-            BiocManager::install(p, ask = FALSE, update = FALSE)
-        }
-    }
-}
