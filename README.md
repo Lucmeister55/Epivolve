@@ -18,6 +18,12 @@
 You will need the `remotes` package:
 
 ```R
+if (!require("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+BiocManager::install(version = "3.21")
+
 install.packages("remotes")
 remotes::install_github("Lucmeister55/MethylPipe", dependencies = TRUE)
+
+library(MethylPipe)
 ```
