@@ -10,7 +10,14 @@ Imports:
     dplyr,
     ggrepel,
     forcats,
-    MASS
+    MASS,
+    methylKit,
+    SummarizedExperiment,
+    GenomicRanges
+Remotes:
+    bioc::methylKit,
+    bioc::SummarizedExperiment,
+    bioc::GenomicRanges
 License: MIT
 Encoding: UTF-8
 LazyData: true
