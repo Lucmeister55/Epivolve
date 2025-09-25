@@ -7,51 +7,80 @@
 #' @param feature_name name string
 #' @param meta sample metadata data.frame containing at least sample_id and relevant covariates
 #' @param plot_path path to write plots
-#' @param tech_reps data.frame with columns rep1, rep2 listing technical replicate pairs (optional)
 #' @param z_threshold numeric z-score threshold for flagging PC1/PC2 outliers
 #' @param lda_class optional column name in meta for LDA class
+#' @param keep_samples optional character vector of sample IDs to analyse (will reorganize to these before PCA)
+#' @param color_by character: metadata column used for point color in PCA plots
+#' @param shape_by character: metadata column used for point shape in PCA plots
+#' @param label_by character: metadata column used for point labels in PCA plots
+#' @param draw_by character: metadata column used to draw group ellipses
+#' @param point_size numeric point size for PCA plots
 #' @import methylKit
 #' @import ggplot2
 #' @export
 count_exploration_wrapper <- function(meth_united, feature_name, meta, plot_path,
-                                      tech_reps = NULL, z_threshold = 5, lda_class = NULL) {
+                                      z_threshold = 5, lda_class = NULL,
+                                      keep_samples = NULL,
+                                      color_by = "label", shape_by = "gender", label_by = NULL,
+                                      draw_by = NULL, point_size = 3) {
   .ensure_dir(plot_path)
   .ensure_dir(file.path(plot_path, "PCA"))
   .ensure_dir(file.path(plot_path, "LDA"))
 
-  pca_main <- .run_pca(meth_united)
+  # If user provided a subset of samples, reorganize to those up front (manual selection)
+  meth_work <- meth_united
+  if (!is.null(keep_samples)) {
+    keep_samples0 <- intersect(keep_samples, meth_united@sample.ids)
+    if (length(keep_samples0) == 0) stop("`keep_samples` does not match any sample IDs in the methyl object")
+    meth_work <- methylKit::reorganize(meth_united, sample.ids = keep_samples0, treatment = rep(0, length(keep_samples0)))
+  }
+
+  # PCA on working set
+  pca_main <- .run_pca(meth_work)
   pca_scores_main <- as.data.frame(pca_main$x)
   pca_scores_main$sample_id <- rownames(pca_scores_main)
   pca_meta_main <- merge(pca_scores_main, meta, by = "sample_id")
 
+  # Detect outliers (flag only)
   outlier_samples <- .detect_outliers(pca_meta_main, z_threshold = z_threshold)
   message("Flagged ", length(outlier_samples), " outliers: ", paste(outlier_samples, collapse = ", "))
 
-  p_all <- .plot_pca_save(pca_main, meta, file.path(plot_path, "PCA", "PCASamples_all.png"), title = paste0(feature_name, ": PCA (all samples)"))
+  # --- PCA plots ---
+  p_all <- .plot_pca_save(pca_main, meta %>% dplyr::filter(sample_id %in% meth_work@sample.ids),
+                          file.path(plot_path, "PCA", "PCASamples_all.png"),
+                          title = paste0(feature_name, ": PCA (working set)"),
+                          color_by = color_by, shape_by = shape_by, label_by = label_by, draw_by = draw_by, point_size = point_size)
 
-  keep_samples <- setdiff(meth_united@sample.ids, outlier_samples)
-  if (length(keep_samples) == 0) stop("All samples flagged as outliers")
-  meth_clean <- methylKit::reorganize(meth_united, sample.ids = keep_samples, treatment = rep(0, length(keep_samples)))
+  # PCA with flagged outliers highlighted
+  meta_flagged <- (pca_scores_main %>% dplyr::select(sample_id)) %>% dplyr::left_join(meta, by = "sample_id")
+  meta_flagged$outlier_flag <- meta_flagged$sample_id %in% outlier_samples
+  meta_flagged$outlier_flag <- factor(meta_flagged$outlier_flag, levels = c("FALSE", "TRUE"))
+  p_flagged <- .plot_pca_save(pca_main, meta_flagged %>% dplyr::filter(sample_id %in% meth_work@sample.ids),
+                              file.path(plot_path, "PCA", "PCASamples_flagged.png"),
+                              title = paste0(feature_name, ": PCA (outliers flagged)"),
+                              color_by = "outlier_flag", shape_by = shape_by, label_by = label_by, draw_by = NULL, point_size = point_size)
 
-  pca_clean <- .run_pca(meth_clean)
-  p_clean <- .plot_pca_save(pca_clean, meta %>% dplyr::filter(sample_id %in% keep_samples), file.path(plot_path, "PCA", "PCASamples_no_outliers.png"), title = paste0(feature_name, ": PCA (no outliers)"))
-
-  # Scree
+  # Scree plot
   png(file.path(plot_path, "PCA", "PCASamples_scree.png"), width = 800, height = 600)
-  methylKit::PCASamples(meth_united, screeplot = TRUE)
+  methylKit::PCASamples(meth_work, screeplot = TRUE)
   dev.off()
 
+  # LDA (if requested)
   lda_obj <- NULL
   if (!is.null(lda_class) && lda_class %in% names(meta)) {
-    lda_obj <- .run_lda(pca_clean, meta %>% dplyr::filter(sample_id %in% keep_samples), lda_class)
-    .plot_lda_save(lda_obj, meta %>% dplyr::filter(sample_id %in% keep_samples), file.path(plot_path, "LDA", "LDA.png"), title = paste0(feature_name, ": LDA (", lda_class, ")"))
+    meta_for_lda <- meta %>% dplyr::filter(sample_id %in% meth_work@sample.ids)
+    lda_obj <- .run_lda(pca_main, meta_for_lda, lda_class)
+    .plot_lda_save(lda_obj, meta_for_lda, file.path(plot_path, "LDA", "LDA.png"),
+                   title = paste0(feature_name, ": LDA (", lda_class, ")"),
+                   color_by = lda_class, shape_by = shape_by, label_by = label_by)
   }
 
-  if (!is.null(tech_reps) && nrow(tech_reps) > 0) {
-    .run_techrep_pca(meth_clean, meta, tech_reps, file.path(plot_path, "PCA", "PCASamples_techReps.png"))
-  }
-
-  return(list(pca_obj = pca_main, pca_meta = pca_scores_main, lda_obj = lda_obj, outliers = outlier_samples, meth_clean = meth_clean))
+  return(list(
+    pca_obj = pca_main,
+    pca_meta = pca_scores_main,
+    lda_obj = lda_obj,
+    outliers = outlier_samples
+  ))
 }
 
 #' @noRd
@@ -86,16 +115,6 @@ count_exploration_wrapper <- function(meth_united, feature_name, meta, plot_path
   p <- plot_lda_gg(lda_obj, metadata = meta, class_col = names(meta)[1], color_by = names(meta)[1], shape_by = "gender", title = title)
   ggplot2::ggsave(filename = filename, plot = p, width = 10, height = 8)
   invisible(p)
-}
-#' @noRd
-.run_techrep_pca <- function(meth_clean, meta, tech_reps, filename) {
-  sample_ids_tech <- unique(c(tech_reps$rep1, tech_reps$rep2))
-  sample_ids_tech <- sample_ids_tech[sample_ids_tech %in% meth_clean@sample.ids]
-  if (length(sample_ids_tech) > 0) {
-    meth_tech <- methylKit::reorganize(meth_clean, sample.ids = sample_ids_tech, treatment = rep(0, length(sample_ids_tech)))
-    p_tech <- plot_prcomp_gg(methylKit::PCASamples(meth_tech, obj.return = TRUE), metadata = meta %>% dplyr::filter(sample_id %in% sample_ids_tech), color_by = "donor_id", label_by = "sample_id", shape_by = "label", title = "PCA of Technical Replicates", point_size = 3)
-    ggplot2::ggsave(filename = filename, plot = p_tech, width = 8, height = 6)
-  }
 }
 
 #' LDA plotting helper using ggplot2

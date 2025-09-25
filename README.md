@@ -15,8 +15,6 @@
 
 ### From GitHub (current)
 
-You will need the `remotes` package:
-
 ```R
 if (!require("BiocManager", quietly = TRUE))
   install.packages("BiocManager")
