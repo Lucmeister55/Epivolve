@@ -25,7 +25,8 @@ BiocManager::install(c(
   "methylKit",
   "GenomicRanges",
   "IRanges",
-  "SummarizedExperiment"
+  "SummarizedExperiment",
+  "impute"
 ))
 
 install.packages("remotes")
