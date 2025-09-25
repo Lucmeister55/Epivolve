@@ -49,15 +49,16 @@ prepare_methylation_matrix <- function(meth_obj, feature_name = "feature") {
 }
 #' @noRd
 .impute_knn <- function(mat, colmax = 0.8) {
+  total_vals <- length(mat)
   missing_before <- sum(is.na(mat))
   res <- impute::impute.knn(as.matrix(mat), colmax = colmax)$data
   missing_after <- sum(is.na(res))
-  cat("Missing values imputed:", missing_before - missing_after, "
-",
-      "Remaining missing values:", missing_after, "
-",
-      "Final matrix dimensions:", dim(res), "
+  imputed_count <- missing_before - missing_after
+  imputed_pct <- round(100 * imputed_count / total_vals, 2)
 
-")
+  cat("Missing values imputed:", imputed_count, 
+      "(", imputed_pct, "%)", "\n",
+      "Remaining missing values:", missing_after, "\n",
+      "Final matrix dimensions:", dim(res), "\n\n")
   res
 }
