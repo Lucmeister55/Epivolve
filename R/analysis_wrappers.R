@@ -88,8 +88,19 @@ count_exploration_wrapper <- function(meth_united, feature_name, meta, plot_path
   suppressWarnings(methylKit::PCASamples(meth_obj, obj.return = TRUE))
 }
 #' @noRd
-.plot_pca_save <- function(pca_obj, meta, filename, title = "PCA") {
-  p <- plot_prcomp_gg(pca_obj, metadata = meta, color_by = "label", shape_by = "gender", draw_by = "label", point_size = 3, title = title)
+.plot_pca_save <- function(pca_obj, meta, filename, title = "PCA",
+                           color_by = "label", shape_by = "gender", label_by = NULL,
+                           draw_by = NULL, point_size = 3) {
+  p <- plot_prcomp_gg(
+    pca_obj,
+    metadata = meta,
+    color_by = color_by,
+    shape_by = shape_by,
+    label_by = label_by,
+    draw_by = draw_by,
+    point_size = point_size,
+    title = title
+  )
   ggplot2::ggsave(filename = filename, plot = p, width = 10, height = 8)
   invisible(p)
 }
