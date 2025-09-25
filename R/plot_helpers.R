@@ -38,15 +38,27 @@ P = ", pval)
 #' @import ggplot2
 #' @import rlang
 #' @export
+#' Simple bar plot helper (bars ordered by descending counts)
+#' @import ggplot2
+#' @import rlang
+#' @export
 bar_plot <- function(data, x, fill = "#4C72B0", title = NULL, rotate = FALSE) {
   xq <- rlang::enquo(x)
+  var_name <- rlang::as_name(xq)
+  
+  # Reorder factor by descending counts
+  data[[var_name]] <- factor(data[[var_name]], 
+                             levels = names(sort(table(data[[var_name]]), decreasing = TRUE)))
+  
   p <- ggplot2::ggplot(data, ggplot2::aes(x = !!xq)) +
     ggplot2::geom_bar(fill = fill) +
     ggplot2::theme_minimal(base_size = 12) +
     ggplot2::labs(title = title, x = NULL, y = "Count")
+  
   if (rotate) {
     p <- p + ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, hjust = 1, vjust = 1))
   }
+  
   return(p)
 }
 
