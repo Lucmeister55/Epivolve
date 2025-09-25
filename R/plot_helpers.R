@@ -93,11 +93,25 @@ hist_plot <- function(data, x, fill = "#4C72B0", binwidth = NULL, title = NULL, 
 box_plot <- function(data, x, y, title = NULL, xlab = NULL, ylab = NULL, colors = NULL) {
   xq <- rlang::enquo(x)
   yq <- rlang::enquo(y)
+  
+  # Colors
   fillvals <- colors %||% grDevices::rainbow(length(unique(data[[rlang::as_name(xq)]])))
+  
+  # Compute counts per group
+  counts <- data %>%
+    dplyr::group_by(group = .data[[rlang::as_name(xq)]]) %>%
+    dplyr::summarise(n = sum(!is.na(.data[[rlang::as_name(yq)]]))) %>%
+    dplyr::mutate(label = paste0("n=", n))
+  
+  # Create boxplot with counts above boxes
   ggplot2::ggplot(data, ggplot2::aes(x = !!xq, y = !!yq, fill = as.factor(!!xq))) +
     ggplot2::geom_boxplot() +
     ggplot2::scale_fill_manual(values = fillvals) +
+    ggplot2::geom_text(data = counts, ggplot2::aes(x = group, y = max(data[[rlang::as_name(yq)]], na.rm = TRUE) * 1.05, 
+                                                   label = label), inherit.aes = FALSE, size = 3) +
     ggplot2::theme_minimal(base_size = 12) +
-    ggplot2::theme(legend.position = "none", axis.text.x = ggplot2::element_text(angle = 45, hjust = 1, vjust = 1)) +
+    ggplot2::theme(legend.position = "none",
+                   axis.text.x = ggplot2::element_text(angle = 45, hjust = 1, vjust = 1)) +
     ggplot2::labs(title = title, x = xlab %||% rlang::as_label(xq), y = ylab %||% rlang::as_label(yq))
 }
+
