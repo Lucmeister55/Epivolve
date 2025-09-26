@@ -1,6 +1,6 @@
-# MethylPipe
+# Epivolve
 
-**MethylPipe** is an R package for downstream processing and analysis of cfRRBS (cell-free Reduced Representation Bisulfite Sequencing) data. It provides functions for:
+**Epivolve** is an R package for downstream processing and analysis of cfRRBS (cell-free Reduced Representation Bisulfite Sequencing) data. It provides functions for:
 
 - Loading and filtering coverage data
 - Sample and site quality control
@@ -28,7 +28,7 @@ BiocManager::install(c(
 ))
 
 install.packages("remotes")
-remotes::install_github("Lucmeister55/MethylPipe", dependencies = TRUE)
+remotes::install_github("Lucmeister55/Epivolve", dependencies = TRUE)
 
-library(MethylPipe)
+library(Epivolve)
 ```

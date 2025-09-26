@@ -1,4 +1,4 @@
-Package: MethylPipe
+Package: Epivolve
 Type: Package
 Title: Downstream preprocessing pipeline for cfRRBS starting from Bismark coverage
 Version: 0.1.0
