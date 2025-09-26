@@ -9,9 +9,20 @@ count_exploration_wrapper(
   feature_name,
   meta,
   plot_path,
-  tech_reps = NULL,
   z_threshold = 5,
-  lda_class = NULL
+  lda_class = NULL,
+  keep_samples = NULL,
+  color_by = "label",
+  shape_by = "gender",
+  label_by = NULL,
+  draw_by = NULL,
+  point_size = 3,
+  detect_outliers = TRUE,
+  save_outlier_plot = TRUE,
+  run_id = NULL,
+  return_objects = TRUE,
+  plot_scree = TRUE,
+  var_filt = 0.5
 )
 }
 \arguments{
@@ -23,11 +34,31 @@ count_exploration_wrapper(
 
 \item{plot_path}{path to write plots}
 
-\item{tech_reps}{data.frame with columns rep1, rep2 listing technical replicate pairs (optional)}
-
 \item{z_threshold}{numeric z-score threshold for flagging PC1/PC2 outliers}
 
 \item{lda_class}{optional column name in meta for LDA class}
+
+\item{keep_samples}{optional character vector of sample IDs to analyse (will reorganize to these before PCA)}
+
+\item{color_by}{character: metadata column used for point color in PCA plots}
+
+\item{shape_by}{character: metadata column used for point shape in PCA plots}
+
+\item{label_by}{character: metadata column used for point labels in PCA plots}
+
+\item{draw_by}{character: metadata column used to draw group ellipses}
+
+\item{point_size}{numeric point size for PCA plots}
+
+\item{detect_outliers}{logical; if FALSE, skip outlier detection entirely (no flagged outliers)}
+
+\item{save_outlier_plot}{logical; if FALSE, don't create the PCA plot that excludes flagged outliers}
+
+\item{run_id}{optional short identifier to append to output filenames (e.g. "v2", "noBatchCorrect")}
+
+\item{return_objects}{logical; if TRUE, return PCA and LDA objects and outlier list}
+
+\item{plot_scree}{logical; if TRUE, create scree plot}
 }
 \description{
 Delegates to smaller internal functions: .run_pca, .plot_pca_save, .run_lda, .plot_lda_save, .run_techrep_pca

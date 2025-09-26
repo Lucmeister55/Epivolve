@@ -30,7 +30,7 @@ count_exploration_wrapper <- function(meth_united, feature_name, meta, plot_path
                                       detect_outliers = TRUE,         # NEW: whether to run detection
                                       save_outlier_plot = TRUE,       # NEW: whether to save the "no outliers" PCA plot
                                       run_id = NULL, return_objects = TRUE,
-                                      plot_scree = TRUE) {                # NEW: identifier appended to filenames
+                                      plot_scree = TRUE, var_filt = 0.5) {                # NEW: identifier appended to filenames
 
   message("Starting exploration for feature: ", feature_name)
   .ensure_dir(plot_path)
@@ -51,7 +51,7 @@ count_exploration_wrapper <- function(meth_united, feature_name, meta, plot_path
 
   # PCA
   message("Running PCA on working set...")
-  pca_main <- .run_pca(meth_work)
+  pca_main <- .run_pca(meth_work, var_filt)
   pca_scores_main <- as.data.frame(pca_main$x)
   pca_scores_main$sample_id <- rownames(pca_main$x)
 
@@ -93,7 +93,7 @@ count_exploration_wrapper <- function(meth_united, feature_name, meta, plot_path
     keep_no_out <- setdiff(rownames(pca_main$x), outlier_samples)
     if (length(keep_no_out) > 1) {
       meth_no_out <- methylKit::reorganize(meth_work, sample.ids = keep_no_out, treatment = rep(0, length(keep_no_out)))
-      pca_no_out <- .run_pca(meth_no_out)
+      pca_no_out <- .run_pca(meth_no_out, var_filt)
       meta_no_out <- meta %>% dplyr::filter(sample_id %in% rownames(pca_no_out$x))
       # align meta order for the no-outlier PCA as well
       meta_no_out <- meta_no_out[match(rownames(pca_no_out$x), meta_no_out$sample_id), , drop = FALSE]
@@ -160,15 +160,37 @@ count_exploration_wrapper <- function(meth_united, feature_name, meta, plot_path
   }
 }
 #' @noRd
-.run_pca <- function(meth_obj) {
+.run_pca <- function(meth_obj, var_filt = NULL) {
   res <- NULL
   suppressWarnings(
     capture.output({
       # Open a null device to swallow plots
       grDevices::pdf(NULL)
       on.exit(grDevices::dev.off(), add = TRUE)
-      
-      res <- methylKit::PCASamples(meth_obj, obj.return = TRUE)
+
+      # defaults
+      sd.filter <- FALSE
+      filterByQuantile <- FALSE
+      sd.threshold <- NULL
+
+      if (!is.null(var_filt)) {
+        sd.filter <- TRUE
+        if (is.numeric(var_filt) && var_filt > 0 && var_filt < 1) {
+          filterByQuantile <- TRUE
+          sd.threshold <- var_filt
+        } else {
+          filterByQuantile <- FALSE
+          sd.threshold <- var_filt
+        }
+      }
+
+      res <- methylKit::PCASamples(
+        meth_obj,
+        obj.return = TRUE,
+        sd.filter = sd.filter,
+        filterByQuantile = filterByQuantile,
+        sd.threshold = sd.threshold
+      )
     })
   )
   return(res)
@@ -272,7 +294,7 @@ plot_lda_gg <- function(lda, metadata, class_col, dim_axes = c(1,2), color_by = 
 
   return(p)
 }
-#' PCA plotting helper using ggplot2 (fixed)
+#' PCA plotting helper using ggplot2 (with feature count in title)
 #' @import ggplot2
 #' @export
 plot_prcomp_gg <- function(pca, metadata = NULL, pc_axes = c(1,2), color_by = NULL, shape_by = NULL, size_by = NULL, label_by = NULL, label_size = 3, repel = TRUE, draw_by = NULL, ellipse_fill = FALSE, ellipse_alpha = 0.15, ellipse_size = 1, title = "PCA plot", point_size = 3, alpha = 0.8, theme = ggplot2::theme_minimal()) {
@@ -285,6 +307,10 @@ plot_prcomp_gg <- function(pca, metadata = NULL, pc_axes = c(1,2), color_by = NU
   var_exp <- summary(pca)$importance[2, pc_axes] * 100
   xlab <- sprintf("PC%d (%.1f%%)", pc_axes[1], var_exp[1])
   ylab <- sprintf("PC%d (%.1f%%)", pc_axes[2], var_exp[2])
+
+  # ---- feature count for title ----
+  n_features <- nrow(pca$rotation)
+  title <- sprintf("%s\n(%d features)", title, n_features)
 
   if (!is.null(metadata)) {
     if (!is.data.frame(metadata)) stop("`metadata` must be a data frame")
@@ -307,7 +333,6 @@ plot_prcomp_gg <- function(pca, metadata = NULL, pc_axes = c(1,2), color_by = NU
 
   # base plot with x/y
   aes_args <- list(x = colnames(scores)[1], y = colnames(scores)[2])
-  # add aesthetics as strings (aes_string expects character names)
   if (!is.null(color_by)) aes_args$colour <- color_by
   if (!is.null(shape_by)) aes_args$shape <- shape_by
   if (!is.null(size_by))  aes_args$size <- size_by
@@ -335,4 +360,142 @@ plot_prcomp_gg <- function(pca, metadata = NULL, pc_axes = c(1,2), color_by = NU
 
   p <- p + ggplot2::labs(title = title, x = xlab, y = ylab, colour = color_by, shape = shape_by, size = size_by) + theme
   return(p)
+}
+
+#' Run UMAP on PCA scores and plot
+#'
+#' @param pca_scores data.frame of PCA scores, rows = samples, columns = PC1, PC2, ...
+#' @param metadata data.frame with sample metadata including 'sample_id'
+#' @param n_pcs number of top PCs to use for UMAP (default 30)
+#' @param cpgi_plots_path directory to save plots and embeddings
+#' @param color_by column in metadata to color points (default "label")
+#' @param shape_by column in metadata for shape (default "gender")
+#' @param size_by column in metadata for size (default "age_at_inclusion")
+#' @param n_neighbors UMAP n_neighbors parameter (default 30)
+#' @param min_dist UMAP min_dist parameter (default 0.3)
+#' @param seed random seed for reproducibility
+#' @return list with UMAP embeddings and ggplot object
+#' @export
+plot_umap <- function(pca_scores, metadata, n_pcs = 30,
+                      cpgi_plots_path, color_by,
+                      shape_by, size_by,
+                      n_neighbors = 30, min_dist = 0.3,
+                      seed = 42) {
+
+  # Prepare PCA matrix
+  pcs <- pca_scores[, paste0("PC", seq_len(n_pcs))]
+
+  # Run UMAP
+  set.seed(seed)
+  umap_out <- uwot::umap(pcs,
+                         n_neighbors = n_neighbors,
+                         min_dist = min_dist,
+                         metric = "euclidean",
+                         ret_model = FALSE,
+                         verbose = TRUE)
+
+  # Create UMAP dataframe
+  umap_df <- as.data.frame(umap_out)
+  colnames(umap_df) <- c("UMAP1", "UMAP2")
+  umap_df$sample_id <- rownames(pcs)
+
+  # Merge with metadata
+  umap_meta <- merge(umap_df, metadata, by = "sample_id", all.x = TRUE)
+
+  # Plot
+  p_umap <- ggplot2::ggplot(umap_meta,
+                             ggplot2::aes(
+                               x = UMAP1, y = UMAP2,
+                               color = .data[[color_by]],
+                               shape = .data[[shape_by]],
+                               size = as.numeric(.data[[size_by]])
+                             )) +
+    ggplot2::geom_point(alpha = 0.9) +
+    ggplot2::labs(
+      title = paste("UMAP of top", n_pcs, "PCs"),
+      subtitle = paste0("n_neighbors=", n_neighbors, ", min_dist=", min_dist, "; PCA input"),
+      size = size_by
+    ) +
+    ggplot2::theme_minimal(base_size = 12) +
+    ggplot2::theme(legend.position = "right")
+
+  # Save outputs
+  dir.create(file.path(cpgi_plots_path, "UMAP"), recursive = TRUE, showWarnings = FALSE)
+  ggplot2::ggsave(file.path(cpgi_plots_path, "UMAP", paste0("UMAP_top", n_pcs, "PCs.png")),
+                  plot = p_umap, width = 9, height = 7, dpi = 300, bg = "white")
+  write.csv(umap_df,
+            file.path(cpgi_plots_path, "UMAP", paste0("UMAP_top", n_pcs, "PCs_embeddings.csv")),
+            row.names = FALSE)
+
+  return(list(embedding = umap_df, plot = p_umap))
+}
+
+#' Run t-SNE on PCA scores and plot
+#'
+#' @param pca_scores data.frame of PCA scores, rows = samples, columns = PC1, PC2, ...
+#' @param metadata data.frame with sample metadata including 'sample_id'
+#' @param n_pcs number of top PCs to use for t-SNE (default 30)
+#' @param cpgi_plots_path directory to save plots and embeddings
+#' @param color_by column in metadata to color points (default "label")
+#' @param shape_by column in metadata for shape (default "gender")
+#' @param size_by column in metadata for size (default "age_at_inclusion")
+#' @param seed random seed for reproducibility
+#' @return list with t-SNE embeddings and ggplot object
+#' @export
+plot_tsne <- function(pca_scores, metadata, n_pcs = 30,
+                      cpgi_plots_path, color_by = "label",
+                      shape_by = "gender", size_by = "age_at_inclusion",
+                      seed = 42) {
+
+  # Prepare PCA matrix
+  pcs <- pca_scores[, paste0("PC", seq_len(n_pcs)), drop = FALSE]
+  n_samples <- nrow(pcs)
+
+  # Determine perplexity
+  suggested_perplexity <- min(30, floor((n_samples - 1)/3))
+  if (suggested_perplexity < 5) suggested_perplexity <- max(2, suggested_perplexity)
+
+  # Run t-SNE
+  set.seed(seed)
+  tsne_out <- Rtsne::Rtsne(as.matrix(pcs),
+                           dims = 2,
+                           perplexity = suggested_perplexity,
+                           theta = 0.5,
+                           verbose = TRUE,
+                           pca = FALSE)
+
+  # Create t-SNE dataframe
+  tsne_df <- as.data.frame(tsne_out$Y)
+  colnames(tsne_df) <- c("tSNE1", "tSNE2")
+  tsne_df$sample_id <- rownames(pcs)
+
+  # Merge with metadata
+  tsne_meta <- merge(tsne_df, metadata, by = "sample_id", all.x = TRUE)
+
+  # Plot
+  p_tsne <- ggplot2::ggplot(tsne_meta,
+                             ggplot2::aes(
+                               x = tSNE1, y = tSNE2,
+                               color = .data[[color_by]],
+                               shape = .data[[shape_by]],
+                               size = as.numeric(.data[[size_by]])
+                             )) +
+    ggplot2::geom_point(alpha = 0.9) +
+    ggplot2::labs(
+      title = paste("t-SNE of top", n_pcs, "PCs"),
+      subtitle = paste0("perplexity=", suggested_perplexity, "; PCA input"),
+      size = size_by
+    ) +
+    ggplot2::theme_minimal(base_size = 12) +
+    ggplot2::theme(legend.position = "right")
+
+  # Save outputs
+  dir.create(file.path(cpgi_plots_path, "tSNE"), recursive = TRUE, showWarnings = FALSE)
+  ggplot2::ggsave(file.path(cpgi_plots_path, "tSNE", paste0("tSNE_top", n_pcs, "PCs.png")),
+                  plot = p_tsne, width = 9, height = 7, dpi = 300, bg = "white")
+  write.csv(tsne_df,
+            file.path(cpgi_plots_path, "tSNE", paste0("tSNE_top", n_pcs, "PCs_embeddings.csv")),
+            row.names = FALSE)
+
+  return(list(embedding = tsne_df, plot = p_tsne))
 }

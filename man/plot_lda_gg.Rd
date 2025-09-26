@@ -2,7 +2,7 @@
 % Please edit documentation in R/analysis_wrappers.R
 \name{plot_lda_gg}
 \alias{plot_lda_gg}
-\title{LDA plotting helper using ggplot2}
+\title{LDA plotting helper (fixed)}
 \usage{
 plot_lda_gg(
   lda,
@@ -20,5 +20,5 @@ plot_lda_gg(
 )
 }
 \description{
-LDA plotting helper using ggplot2
+LDA plotting helper (fixed)
 }

@@ -2,7 +2,7 @@
 % Please edit documentation in R/analysis_wrappers.R
 \name{plot_prcomp_gg}
 \alias{plot_prcomp_gg}
-\title{PCA plotting helper using ggplot2}
+\title{PCA plotting helper using ggplot2 (with feature count in title)}
 \usage{
 plot_prcomp_gg(
   pca,
@@ -25,5 +25,5 @@ plot_prcomp_gg(
 )
 }
 \description{
-PCA plotting helper using ggplot2
+PCA plotting helper using ggplot2 (with feature count in title)
 }

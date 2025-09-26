@@ -6,12 +6,33 @@
 #' @param feature_name name used in console messages
 #' @importFrom impute impute.knn
 #' @export
-prepare_methylation_matrix <- function(meth_obj, feature_name = "feature") {
+#' Prepare methylation percentage matrix from a methylKit object
+#' Wrapper that calls small subfunctions to remove duplicates, filter samples, and impute
+#' @param meth_obj methylKit object (e.g. methylBase, methylRawList)
+#' @param feature_name name used in console messages
+#' @param remove_samples character vector of sample IDs to remove
+#' @importFrom impute impute.knn
+#' @export
+prepare_methylation_matrix <- function(meth_obj, feature_name = "feature", remove_samples = NULL) {
   df <- .coerce_to_df(meth_obj)
   df <- .remove_duplicate_loci(df)
+  
   PercM <- methylKit::percMethylation(meth_obj, rowids = TRUE)
-  cat(feature_name, "original matrix dimensions:", dim(PercM), "
-")
+  cat(feature_name, "original matrix dimensions:", dim(PercM), "\n")
+  
+  # Remove samples if requested
+  if (!is.null(remove_samples)) {
+    samples_exist <- remove_samples %in% colnames(PercM)
+    if (any(samples_exist)) {
+      PercM <- PercM[, !colnames(PercM) %in% remove_samples, drop = FALSE]
+      cat("Removed samples:", paste(remove_samples[samples_exist], collapse = ", "), "\n")
+    }
+    if (!all(samples_exist)) {
+      cat("Warning: these samples were not found and could not be removed:", 
+          paste(remove_samples[!samples_exist], collapse = ", "), "\n")
+    }
+  }
+  
   PercM <- .filter_sample_missingness(PercM, max_missing = 0.8)
   PercM_imputed <- .impute_knn(PercM, colmax = 0.8)
   return(PercM_imputed)
@@ -61,4 +82,34 @@ prepare_methylation_matrix <- function(meth_obj, feature_name = "feature") {
       "Remaining missing values:", missing_after, "\n",
       "Final matrix dimensions:", dim(res), "\n\n")
   res
+}
+
+#' Check consistency between methylation matrix and metadata
+#'
+#' Verifies that all sample IDs in metadata are present in the methylation matrix,
+#' all matrix columns are in the metadata, and that the order matches.
+#'
+#' @param mat A numeric matrix or data.frame with samples as columns
+#' @param metadata A data.frame containing a column of sample IDs
+#' @param sample_col Name of the column in metadata containing sample IDs (default: "sample_id")
+#' @export
+check_sample_consistency <- function(mat, metadata, sample_col = "sample_id") {
+  if (!sample_col %in% colnames(metadata)) {
+    stop("Error: '", sample_col, "' column not found in metadata!")
+  }
+  
+  sample_ids <- metadata[[sample_col]]
+  
+  if (!all(sample_ids %in% colnames(mat))) {
+    stop("Error: Some sample IDs in metadata are missing from the matrix!")
+  }
+  if (!all(colnames(mat) %in% sample_ids)) {
+    stop("Error: Some sample IDs in the matrix are missing from metadata!")
+  }
+  if (!all(sample_ids == colnames(mat))) {
+    stop("Error: Sample IDs in metadata and matrix are not in the same order!")
+  }
+  
+  cat("Matrix and metadata contain the same sample IDs and are in the same order.\n")
+  invisible(TRUE)
 }
